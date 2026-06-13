@@ -1,0 +1,64 @@
+{
+  "url": "http://127.0.0.1:8431/?seed=7",
+  "started_at": "2026-06-13T12:42:35.761Z",
+  "checks": [
+    {
+      "name": "page loads with game state",
+      "pass": true,
+      "detail": "window.__sky present"
+    },
+    {
+      "name": "boost raises speed well above base",
+      "pass": true,
+      "detail": "speed 73 (base 30, boost 82; sim time runs slower than wall time under software GL)"
+    },
+    {
+      "name": "audio engine starts (AudioContext running + ambient bed)",
+      "pass": true,
+      "detail": "ctx running, ambient true, samples []"
+    },
+    {
+      "name": "Magnific-generated music bed loads and plays",
+      "pass": true,
+      "detail": "music playing: true"
+    },
+    {
+      "name": "banking roll engages during turn",
+      "pass": true,
+      "detail": "roll -0.80 rad"
+    },
+    {
+      "name": "all 12 rings collectable via live collision code",
+      "pass": true,
+      "detail": "collected 12/12"
+    },
+    {
+      "name": "score and combo multiplier accumulate",
+      "pass": true,
+      "detail": "score 7800 (12 rings, full combo = 7800+), combo x12"
+    },
+    {
+      "name": "win overlay appears with final time",
+      "pass": true,
+      "detail": "time 0:25.1"
+    },
+    {
+      "name": "R restarts the run and zeroes the score",
+      "pass": true,
+      "detail": "{\"collected\":0,\"score\":0,\"ringsVisible\":12}"
+    },
+    {
+      "name": "CC0 GLB character swap-in works (?model=./assets/fox.glb)",
+      "pass": true,
+      "detail": "{\"modelLoaded\":true,\"proceduralHidden\":true}"
+    },
+    {
+      "name": "no console or page errors",
+      "pass": true,
+      "detail": "clean"
+    }
+  ],
+  "finished_at": "2026-06-13T12:43:31.119Z",
+  "console_errors": [],
+  "pass": true
+}

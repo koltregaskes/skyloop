@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SKYLOOP — Rooms OS flying prototype</title>
+<style>
+  :root {
+    --ink: #f4ecff;
+    --dim: #b9a8d6;
+    --amber: #ffb347;
+    --cyan: #7afcff;
+    --panel: rgba(16, 10, 34, 0.55);
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1233; }
+  body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); }
+  canvas { display: block; }
+
+  #hud {
+    position: fixed; top: 18px; left: 20px; z-index: 5;
+    background: var(--panel); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px; padding: 12px 16px; backdrop-filter: blur(6px);
+    min-width: 168px; pointer-events: none;
+  }
+  #hud h1 {
+    margin: 0 0 6px; font-size: 15px; letter-spacing: 0.42em;
+    color: var(--amber); font-weight: 700;
+  }
+  #hud .row { font-size: 13px; line-height: 1.7; color: var(--dim); }
+  #hud .row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  #speedwrap {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+    z-index: 5; width: 240px; pointer-events: none; text-align: center;
+  }
+  #speedbar {
+    height: 6px; border-radius: 3px; background: rgba(255,255,255,0.14);
+    overflow: hidden; border: 1px solid rgba(255,255,255,0.10);
+  }
+  #speedfill {
+    height: 100%; width: 30%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--cyan), var(--amber));
+    transition: width 0.08s linear;
+  }
+  #boostlabel {
+    font-size: 11px; letter-spacing: 0.34em; margin-top: 7px; color: var(--dim);
+    opacity: 0.55; transition: opacity 0.15s, color 0.15s;
+  }
+  #boostlabel.on { opacity: 1; color: var(--amber); text-shadow: 0 0 12px rgba(255,179,71,0.8); }
+
+  #marker {
+    position: fixed; z-index: 4; width: 0; height: 0; pointer-events: none;
+    display: none;
+  }
+  #marker .diamond {
+    width: 13px; height: 13px; border: 2px solid var(--amber);
+    transform: translate(-50%, -50%) rotate(45deg);
+    box-shadow: 0 0 14px rgba(255,179,71,0.85);
+  }
+  #marker .dist {
+    position: absolute; top: 11px; left: -18px; width: 60px; text-align: center;
+    font-size: 10px; color: var(--amber); letter-spacing: 0.08em;
+    text-shadow: 0 0 6px rgba(0,0,0,0.8);
+  }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 10; display: flex;
+    align-items: center; justify-content: center; flex-direction: column;
+    background: radial-gradient(ellipse at center, rgba(26,18,51,0.35), rgba(12,8,26,0.88));
+    text-align: center; transition: opacity 0.5s;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  /* Magnific-generated key art behind the start splash (assets/keyart-b.jpg). */
+  #start {
+    background:
+      linear-gradient(to bottom, rgba(12,8,26,0.35), rgba(12,8,26,0.78)),
+      url('./assets/keyart-b.jpg') center / cover no-repeat;
+  }
+  #win {
+    background:
+      linear-gradient(to bottom, rgba(12,8,26,0.62), rgba(12,8,26,0.86)),
+      url('./assets/keyart-a.jpg') center / cover no-repeat;
+  }
+  .overlay h2 {
+    font-size: 54px; margin: 0 0 4px; letter-spacing: 0.5em; color: var(--ink);
+    text-shadow: 0 0 30px rgba(122,252,255,0.55); font-weight: 800; padding-left: 0.5em;
+  }
+  .overlay .sub { color: var(--amber); letter-spacing: 0.28em; font-size: 13px; margin-bottom: 30px; }
+  .overlay .controls {
+    color: var(--dim); font-size: 14px; line-height: 2.05;
+    background: var(--panel); border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px; padding: 16px 30px;
+  }
+  .overlay .controls b { color: var(--ink); }
+  .overlay .go { margin-top: 28px; font-size: 15px; color: var(--cyan); letter-spacing: 0.2em; animation: pulse 1.6s infinite; }
+  .overlay .bigtime { font-size: 40px; color: var(--amber); font-variant-numeric: tabular-nums; margin: 8px 0 2px; }
+  .overlay .best { color: var(--dim); font-size: 13px; letter-spacing: 0.1em; }
+  @keyframes pulse { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+  #foot {
+    position: fixed; right: 14px; bottom: 10px; z-index: 5; font-size: 10px;
+    color: rgba(244,236,255,0.4); letter-spacing: 0.12em; pointer-events: none;
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="hud">
+    <h1>SKYLOOP</h1>
+    <div class="row">Rings <b id="rings">0 / 12</b></div>
+    <div class="row">Score <b id="score">0</b></div>
+    <div class="row">Combo <b id="combo">—</b></div>
+    <div class="row">Time <b id="time">0:00.0</b></div>
+    <div class="row">Best <b id="best">—</b></div>
+  </div>
+
+  <div id="speedwrap">
+    <div id="speedbar"><div id="speedfill"></div></div>
+    <div id="boostlabel">BOOST</div>
+  </div>
+
+  <div id="marker"><div class="diamond"></div><div class="dist">120 m</div></div>
+
+  <div id="start" class="overlay">
+    <h2>SKYLOOP</h2>
+    <div class="sub">A ROOMS OS FLYING PROTOTYPE</div>
+    <div class="controls">
+      <b>W / S</b> or <b>&uarr; / &darr;</b> &nbsp;dive &amp; climb<br/>
+      <b>A / D</b> or <b>&larr; / &rarr;</b> &nbsp;bank &amp; turn<br/>
+      <b>Shift</b> &nbsp;boost &nbsp;&middot;&nbsp; <b>R</b> &nbsp;restart &nbsp;&middot;&nbsp; <b>M</b> &nbsp;mute
+    </div>
+    <div class="go">PRESS ANY KEY TO LAUNCH</div>
+  </div>
+
+  <div id="win" class="overlay hidden">
+    <h2>CIRCUIT<br/>COMPLETE</h2>
+    <div class="bigtime" id="wintime">0:00.0</div>
+    <div class="best" id="winscore"></div>
+    <div class="best" id="winbest"></div>
+    <div class="go">PRESS R TO FLY AGAIN</div>
+  </div>
+
+  <div id="foot">SKYLOOP &middot; original Rooms OS prototype &middot; Three.js</div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

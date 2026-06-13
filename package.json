@@ -1,0 +1,19 @@
+{
+  "name": "skyloop",
+  "version": "1.0.0",
+  "description": "An original browser flying mini-game built with Three.js — fly through sky rings against the clock.",
+  "type": "module",
+  "homepage": "https://koltregaskes.github.io/skyloop/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/koltregaskes/skyloop.git"
+  },
+  "license": "MIT",
+  "scripts": {
+    "serve": "python -m http.server 8431",
+    "verify": "node scripts/verify-capture.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

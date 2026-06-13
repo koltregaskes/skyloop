@@ -1,0 +1,5 @@
+{
+  "_comment": "Generated audio for SKYLOOP. 'samples' maps one-shot SFX cues (ring/boost/win) to files; missing cues fall back to live WebAudio synthesis. 'music' is an optional looping background bed. See assets/GENERATED-ASSETS.md for provenance.",
+  "samples": {},
+  "music": "music-flight.mp3"
+}

@@ -1,0 +1,25 @@
+# Dependencies (the game runs from a CDN; only the verify script needs these)
+node_modules/
+
+# Tokens / secrets (never commit)
+*.token.json
+.magnific-token.json
+.env
+.env.*
+
+# Verification video is large and regenerated on demand; screenshots are kept
+evidence/*.webm
+
+# OS / tooling noise
+Thumbs.db
+.DS_Store
+*.log
+scripts/*.output
+
+# Local-only Magnific asset-generation tooling (needs the W-drive bearer token).
+# The generated assets themselves ARE committed; provenance is in
+# assets/GENERATED-ASSETS.md.
+scripts/magnific-call.mjs
+scripts/magnific-fetch.mjs
+scripts/args-*.json
+scripts/fetch-map.json
