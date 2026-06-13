@@ -21,11 +21,23 @@ These came out remarkably close to SKYLOOP's actual procedural world (teal hero 
 amber cape, floating islands, amber rings, lit beacon city), so they double as
 honest key art rather than generic splash images.
 
-## Music (tool: `audio_music_generate`, model `elevenlabs-music-generation`, 60 s)
+## Hero concept (tool: `images_generate`, model `seedream-4-5`, 2:3)
 
-- **audio/music-flight.mp3** — looping ambient flight bed. Creation `tfnBTBRmZJ`.
+- **hero-concept.jpg** — the "Aurora" character concept (front A-pose, plain
+  background) used as the source image for the AI 3D hero. Creation `xghxxLejfW`.
+- **hero-aurora.glb** — image-to-3D conversion of that concept (tool
+  `models3d_generate`, model `tripo-p1`). Selectable in-game as the AURORA
+  character. Creation `xgvLZpCjfW`.
 
-Prompt:
+## Music (tool: `audio_music_generate`, model `elevenlabs-music-generation`)
+
+- **audio/music-flight.mp3** (60 s) — looping ambient bed, used on the menu.
+  Creation `tfnBTBRmZJ`.
+- **audio/music-gameplay.mp3** (95 s) — energetic driving bed, crossfaded in
+  during play. Creation `3GL3iWkREY`. Prompt: energetic uplifting electronic
+  flight music ~120 BPM, soaring leads, arpeggiated bass, building intensity.
+
+Ambient prompt (music-flight):
 > Dreamy ambient flight music bed, weightless and uplifting, soft warm synth
 > pads, gentle arpeggios, airy bells, subtle slow pulse, a sense of soaring
 > through a dusk sky, no vocals, seamless background loop for a flying game

@@ -1,56 +1,71 @@
 {
   "url": "http://127.0.0.1:8431/?seed=7",
-  "started_at": "2026-06-13T12:42:35.761Z",
+  "started_at": "2026-06-13T19:29:18.107Z",
   "checks": [
     {
-      "name": "page loads with game state",
+      "name": "loads to menu",
       "pass": true,
-      "detail": "window.__sky present"
+      "detail": "mode=menu"
     },
     {
-      "name": "boost raises speed well above base",
+      "name": "hero flies the course under autopilot",
       "pass": true,
-      "detail": "speed 73 (base 30, boost 82; sim time runs slower than wall time under software GL)"
+      "detail": "moved 7m"
     },
     {
-      "name": "audio engine starts (AudioContext running + ambient bed)",
+      "name": "rings collect via live collectRing code",
       "pass": true,
-      "detail": "ctx running, ambient true, samples []"
+      "detail": "rings 12"
     },
     {
-      "name": "Magnific-generated music bed loads and plays",
+      "name": "score accumulates with combo",
       "pass": true,
-      "detail": "music playing: true"
+      "detail": "score 20420"
     },
     {
-      "name": "banking roll engages during turn",
+      "name": "combo multiplier builds from chained rings",
       "pass": true,
-      "detail": "roll -0.80 rad"
+      "detail": "maxCombo ×12"
     },
     {
-      "name": "all 12 rings collectable via live collision code",
+      "name": "passing rings extends the clock",
       "pass": true,
-      "detail": "collected 12/12"
+      "detail": "time 21.1s → 29.9s"
     },
     {
-      "name": "score and combo multiplier accumulate",
+      "name": "audio engine running + gameplay music target",
       "pass": true,
-      "detail": "score 7800 (12 rings, full combo = 7800+), combo x12"
+      "detail": "ctx running, music gameplay, menu=true gameplay=true"
     },
     {
-      "name": "win overlay appears with final time",
+      "name": "Escape pauses the game",
       "pass": true,
-      "detail": "time 0:25.1"
+      "detail": "pause overlay shown"
     },
     {
-      "name": "R restarts the run and zeroes the score",
+      "name": "Escape resumes",
       "pass": true,
-      "detail": "{\"collected\":0,\"score\":0,\"ringsVisible\":12}"
+      "detail": "resumed"
     },
     {
-      "name": "CC0 GLB character swap-in works (?model=./assets/fox.glb)",
+      "name": "character swap is safe mid-run",
       "pass": true,
-      "detail": "{\"modelLoaded\":true,\"proceduralHidden\":true}"
+      "detail": "still playing after setChar(fox)"
+    },
+    {
+      "name": "AI 3D hero (Aurora) unlocks when its GLB is present",
+      "pass": true,
+      "detail": "aurora unlocked"
+    },
+    {
+      "name": "Aurora 3D character is selectable mid-run",
+      "pass": true,
+      "detail": "still playing after setChar(aurora)"
+    },
+    {
+      "name": "run ends to results screen with a grade",
+      "pass": true,
+      "detail": "mode results, grade S"
     },
     {
       "name": "no console or page errors",
@@ -58,7 +73,7 @@
       "detail": "clean"
     }
   ],
-  "finished_at": "2026-06-13T12:43:31.119Z",
+  "finished_at": "2026-06-13T19:30:10.878Z",
   "console_errors": [],
   "pass": true
 }

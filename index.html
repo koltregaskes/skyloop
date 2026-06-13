@@ -2,105 +2,167 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SKYLOOP — Rooms OS flying prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#1a1233" />
+<title>SKYLOOP</title>
 <style>
   :root {
     --ink: #f4ecff;
     --dim: #b9a8d6;
     --amber: #ffb347;
+    --gold: #ffd86b;
     --cyan: #7afcff;
+    --rose: #ff6b8a;
     --panel: rgba(16, 10, 34, 0.55);
+    --panel-solid: rgba(16, 10, 34, 0.82);
+    --stroke: rgba(255, 255, 255, 0.12);
+    --font: "Segoe UI", system-ui, -apple-system, sans-serif;
   }
+  * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1233; }
-  body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); }
-  canvas { display: block; }
+  body { font-family: var(--font); color: var(--ink); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; position: fixed; inset: 0; }
 
-  #hud {
-    position: fixed; top: 18px; left: 20px; z-index: 5;
-    background: var(--panel); border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px; padding: 12px 16px; backdrop-filter: blur(6px);
-    min-width: 168px; pointer-events: none;
-  }
-  #hud h1 {
-    margin: 0 0 6px; font-size: 15px; letter-spacing: 0.42em;
-    color: var(--amber); font-weight: 700;
-  }
-  #hud .row { font-size: 13px; line-height: 1.7; color: var(--dim); }
-  #hud .row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  /* ---------------------------------------------------------------- HUD */
+  #hud { position: fixed; inset: 0; z-index: 5; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+  #hud.on { opacity: 1; }
 
-  #speedwrap {
-    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
-    z-index: 5; width: 240px; pointer-events: none; text-align: center;
+  #timerWrap {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    text-align: center;
   }
-  #speedbar {
-    height: 6px; border-radius: 3px; background: rgba(255,255,255,0.14);
-    overflow: hidden; border: 1px solid rgba(255,255,255,0.10);
+  #timer {
+    font-size: 46px; font-weight: 800; letter-spacing: 0.04em; line-height: 1;
+    font-variant-numeric: tabular-nums; color: var(--ink);
+    text-shadow: 0 2px 18px rgba(0,0,0,0.55);
   }
-  #speedfill {
-    height: 100%; width: 30%; border-radius: 3px;
+  #timer.low { color: var(--rose); animation: pulse 0.5s infinite; }
+  #timerWrap .cap { font-size: 10px; letter-spacing: 0.42em; color: var(--dim); margin-top: 3px; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+
+  .panel {
+    position: absolute; background: var(--panel); border: 1px solid var(--stroke);
+    border-radius: 12px; padding: 9px 13px; backdrop-filter: blur(7px);
+  }
+  #scorePanel { top: 16px; left: 18px; min-width: 132px; }
+  #scorePanel .lab { font-size: 9px; letter-spacing: 0.34em; color: var(--dim); }
+  #score { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  #comboChip {
+    display: inline-block; margin-top: 3px; font-size: 13px; font-weight: 700;
+    color: var(--gold); letter-spacing: 0.06em; min-height: 16px;
+  }
+  #comboBar { margin-top: 5px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.12); overflow: hidden; }
+  #comboFill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--amber)); }
+
+  #statPanel { top: 16px; right: 18px; text-align: right; min-width: 96px; }
+  #statPanel .lab { font-size: 9px; letter-spacing: 0.3em; color: var(--dim); }
+  #rings { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #best { font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+  #boostWrap { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); width: 230px; text-align: center; }
+  #boostBar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.13); overflow: hidden; border: 1px solid var(--stroke); }
+  #boostFill { height: 100%; width: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--cyan), var(--amber)); transition: width 0.08s linear; }
+  #boostFill.empty { background: var(--rose); }
+  #boostLabel { font-size: 10px; letter-spacing: 0.34em; margin-top: 6px; color: var(--dim); }
+  #boostLabel.on { color: var(--amber); text-shadow: 0 0 12px rgba(255,179,71,0.8); }
+
+  #marker { position: absolute; z-index: 4; width: 0; height: 0; display: none; }
+  #marker .diamond { width: 13px; height: 13px; border: 2px solid var(--amber); transform: translate(-50%,-50%) rotate(45deg); box-shadow: 0 0 14px rgba(255,179,71,0.85); }
+  #marker .dist { position: absolute; top: 12px; left: -20px; width: 64px; text-align: center; font-size: 10px; color: var(--amber); text-shadow: 0 0 6px rgba(0,0,0,0.8); }
+
+  #popups { position: absolute; inset: 0; }
+  .popup {
+    position: absolute; transform: translate(-50%, -50%); font-weight: 800;
+    letter-spacing: 0.04em; white-space: nowrap; text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+    animation: floatup 1s ease-out forwards;
+  }
+  @keyframes floatup {
+    0% { opacity: 0; transform: translate(-50%, -30%) scale(0.7); }
+    18% { opacity: 1; transform: translate(-50%, -55%) scale(1.05); }
+    100% { opacity: 0; transform: translate(-50%, -135%) scale(1); }
+  }
+
+  #flash { position: fixed; inset: 0; z-index: 6; background: #fff; opacity: 0; pointer-events: none; }
+  #lowVignette {
+    position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: 0; transition: opacity 0.4s;
+    box-shadow: inset 0 0 180px 40px rgba(255,60,90,0.55);
+  }
+  #lowVignette.on { opacity: 1; animation: pulse 0.7s infinite; }
+
+  /* ------------------------------------------------------------- screens */
+  .screen {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    transition: opacity 0.4s; padding: 24px;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  #menu { background: linear-gradient(to bottom, rgba(12,8,26,0.35), rgba(12,8,26,0.8)), url('./assets/keyart-b.jpg') center/cover no-repeat; }
+  #results { background: linear-gradient(to bottom, rgba(12,8,26,0.55), rgba(12,8,26,0.9)), url('./assets/keyart-a.jpg') center/cover no-repeat; }
+  #pause { background: rgba(12,8,26,0.7); backdrop-filter: blur(4px); }
+
+  .title { font-size: clamp(48px, 11vw, 104px); font-weight: 900; letter-spacing: 0.46em; padding-left: 0.46em; margin: 0; color: var(--ink); text-shadow: 0 0 36px rgba(122,252,255,0.5); }
+  .tagline { color: var(--amber); letter-spacing: 0.32em; font-size: clamp(10px, 2vw, 13px); margin: 4px 0 26px; }
+
+  .btn {
+    pointer-events: auto; cursor: pointer; font-family: var(--font); font-weight: 800;
+    letter-spacing: 0.14em; font-size: 16px; color: #1a1233;
     background: linear-gradient(90deg, var(--cyan), var(--amber));
-    transition: width 0.08s linear;
+    border: none; border-radius: 999px; padding: 14px 42px; margin: 6px;
+    box-shadow: 0 6px 24px rgba(122,252,255,0.3); transition: transform 0.12s, box-shadow 0.12s;
   }
-  #boostlabel {
-    font-size: 11px; letter-spacing: 0.34em; margin-top: 7px; color: var(--dim);
-    opacity: 0.55; transition: opacity 0.15s, color 0.15s;
-  }
-  #boostlabel.on { opacity: 1; color: var(--amber); text-shadow: 0 0 12px rgba(255,179,71,0.8); }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,179,71,0.4); }
+  .btn:active { transform: translateY(0); }
+  .btn.ghost { background: var(--panel); color: var(--ink); border: 1px solid var(--stroke); box-shadow: none; font-size: 13px; padding: 11px 26px; }
 
-  #marker {
-    position: fixed; z-index: 4; width: 0; height: 0; pointer-events: none;
-    display: none;
-  }
-  #marker .diamond {
-    width: 13px; height: 13px; border: 2px solid var(--amber);
-    transform: translate(-50%, -50%) rotate(45deg);
-    box-shadow: 0 0 14px rgba(255,179,71,0.85);
-  }
-  #marker .dist {
-    position: absolute; top: 11px; left: -18px; width: 60px; text-align: center;
-    font-size: 10px; color: var(--amber); letter-spacing: 0.08em;
-    text-shadow: 0 0 6px rgba(0,0,0,0.8);
-  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: center; }
 
-  .overlay {
-    position: fixed; inset: 0; z-index: 10; display: flex;
-    align-items: center; justify-content: center; flex-direction: column;
-    background: radial-gradient(ellipse at center, rgba(26,18,51,0.35), rgba(12,8,26,0.88));
-    text-align: center; transition: opacity 0.5s;
+  .charSelect { display: flex; gap: 12px; margin: 8px 0 18px; }
+  .char {
+    pointer-events: auto; cursor: pointer; width: 92px; padding: 12px 8px; border-radius: 14px;
+    background: var(--panel); border: 1px solid var(--stroke); transition: border-color 0.15s, transform 0.15s;
   }
-  .overlay.hidden { opacity: 0; pointer-events: none; }
-  /* Magnific-generated key art behind the start splash (assets/keyart-b.jpg). */
-  #start {
-    background:
-      linear-gradient(to bottom, rgba(12,8,26,0.35), rgba(12,8,26,0.78)),
-      url('./assets/keyart-b.jpg') center / cover no-repeat;
-  }
-  #win {
-    background:
-      linear-gradient(to bottom, rgba(12,8,26,0.62), rgba(12,8,26,0.86)),
-      url('./assets/keyart-a.jpg') center / cover no-repeat;
-  }
-  .overlay h2 {
-    font-size: 54px; margin: 0 0 4px; letter-spacing: 0.5em; color: var(--ink);
-    text-shadow: 0 0 30px rgba(122,252,255,0.55); font-weight: 800; padding-left: 0.5em;
-  }
-  .overlay .sub { color: var(--amber); letter-spacing: 0.28em; font-size: 13px; margin-bottom: 30px; }
-  .overlay .controls {
-    color: var(--dim); font-size: 14px; line-height: 2.05;
-    background: var(--panel); border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 14px; padding: 16px 30px;
-  }
-  .overlay .controls b { color: var(--ink); }
-  .overlay .go { margin-top: 28px; font-size: 15px; color: var(--cyan); letter-spacing: 0.2em; animation: pulse 1.6s infinite; }
-  .overlay .bigtime { font-size: 40px; color: var(--amber); font-variant-numeric: tabular-nums; margin: 8px 0 2px; }
-  .overlay .best { color: var(--dim); font-size: 13px; letter-spacing: 0.1em; }
-  @keyframes pulse { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+  .char:hover { transform: translateY(-3px); }
+  .char.sel { border-color: var(--cyan); box-shadow: 0 0 18px rgba(122,252,255,0.35); }
+  .char .swatch { width: 38px; height: 38px; border-radius: 50%; margin: 0 auto 8px; }
+  .char .nm { font-size: 12px; font-weight: 700; }
+  .char .dsc { font-size: 9px; color: var(--dim); margin-top: 2px; letter-spacing: 0.04em; }
+  .char.locked { opacity: 0.45; }
 
-  #foot {
-    position: fixed; right: 14px; bottom: 10px; z-index: 5; font-size: 10px;
-    color: rgba(244,236,255,0.4); letter-spacing: 0.12em; pointer-events: none;
+  .menuMeta { color: var(--dim); font-size: 12px; margin-top: 14px; letter-spacing: 0.04em; }
+  .hint { color: var(--dim); font-size: 12px; line-height: 1.9; margin-top: 14px; background: var(--panel); border: 1px solid var(--stroke); border-radius: 12px; padding: 12px 22px; }
+  .hint b { color: var(--ink); }
+  .settings { margin-top: 12px; }
+  .toggle { pointer-events: auto; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--dim); background: var(--panel); border: 1px solid var(--stroke); border-radius: 999px; padding: 7px 16px; margin: 4px; }
+  .toggle.on { color: var(--cyan); border-color: var(--cyan); }
+
+  #countdown { z-index: 11; background: none; }
+  #countNum { font-size: clamp(90px, 26vw, 230px); font-weight: 900; color: var(--ink); text-shadow: 0 0 50px rgba(122,252,255,0.6); animation: countpop 1s ease-out; }
+  @keyframes countpop { 0% { opacity: 0; transform: scale(2.2); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.6); } }
+
+  /* results */
+  #grade { font-size: clamp(86px, 22vw, 190px); font-weight: 900; line-height: 0.9; margin: 0; }
+  #gradeLabel { letter-spacing: 0.4em; font-size: 13px; color: var(--dim); margin-bottom: 18px; }
+  .statGrid { display: grid; grid-template-columns: repeat(2, minmax(120px, 160px)); gap: 8px 26px; margin: 6px 0 22px; }
+  .statGrid .k { color: var(--dim); font-size: 12px; letter-spacing: 0.06em; text-align: left; }
+  .statGrid .v { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+  .newbest { color: var(--gold); letter-spacing: 0.2em; font-size: 13px; margin-bottom: 14px; min-height: 16px; animation: pulse 1s infinite; }
+
+  /* ---------------------------------------------------------- touch ui */
+  #touch { position: fixed; inset: 0; z-index: 7; display: none; pointer-events: none; }
+  #touch.on { display: block; }
+  #stickZone { position: absolute; left: 0; bottom: 0; width: 50%; height: 62%; pointer-events: auto; }
+  #stickBase { position: absolute; width: 116px; height: 116px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.05); transform: translate(-50%,-50%); display: none; }
+  #stickNub { position: absolute; width: 54px; height: 54px; border-radius: 50%; background: rgba(122,252,255,0.45); border: 2px solid var(--cyan); transform: translate(-50%,-50%); display: none; }
+  #boostTouch {
+    position: absolute; right: 26px; bottom: 80px; width: 104px; height: 104px; border-radius: 50%;
+    pointer-events: auto; background: var(--panel); border: 2px solid var(--amber); color: var(--amber);
+    font-weight: 800; letter-spacing: 0.12em; font-size: 14px; display: flex; align-items: center; justify-content: center;
   }
+  #boostTouch.on { background: rgba(255,179,71,0.3); box-shadow: 0 0 26px rgba(255,179,71,0.7); }
+  #pauseBtn { position: absolute; top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 10px; pointer-events: auto; background: var(--panel); border: 1px solid var(--stroke); color: var(--ink); font-size: 16px; }
+
+  #foot { position: fixed; right: 12px; bottom: 8px; z-index: 5; font-size: 10px; color: rgba(244,236,255,0.4); letter-spacing: 0.1em; pointer-events: none; }
 </style>
 <script type="importmap">
 {
@@ -112,42 +174,115 @@
 </script>
 </head>
 <body>
+  <!-- ================================================================ HUD -->
   <div id="hud">
-    <h1>SKYLOOP</h1>
-    <div class="row">Rings <b id="rings">0 / 12</b></div>
-    <div class="row">Score <b id="score">0</b></div>
-    <div class="row">Combo <b id="combo">—</b></div>
-    <div class="row">Time <b id="time">0:00.0</b></div>
-    <div class="row">Best <b id="best">—</b></div>
-  </div>
-
-  <div id="speedwrap">
-    <div id="speedbar"><div id="speedfill"></div></div>
-    <div id="boostlabel">BOOST</div>
-  </div>
-
-  <div id="marker"><div class="diamond"></div><div class="dist">120 m</div></div>
-
-  <div id="start" class="overlay">
-    <h2>SKYLOOP</h2>
-    <div class="sub">A ROOMS OS FLYING PROTOTYPE</div>
-    <div class="controls">
-      <b>W / S</b> or <b>&uarr; / &darr;</b> &nbsp;dive &amp; climb<br/>
-      <b>A / D</b> or <b>&larr; / &rarr;</b> &nbsp;bank &amp; turn<br/>
-      <b>Shift</b> &nbsp;boost &nbsp;&middot;&nbsp; <b>R</b> &nbsp;restart &nbsp;&middot;&nbsp; <b>M</b> &nbsp;mute
+    <div id="scorePanel" class="panel">
+      <div class="lab">SCORE</div>
+      <div id="score">0</div>
+      <div id="comboChip"></div>
+      <div id="comboBar"><div id="comboFill"></div></div>
     </div>
-    <div class="go">PRESS ANY KEY TO LAUNCH</div>
+
+    <div id="timerWrap">
+      <div id="timer">0:20.0</div>
+      <div class="cap">TIME</div>
+    </div>
+
+    <div id="statPanel" class="panel">
+      <div class="lab">RINGS</div>
+      <div id="rings">0</div>
+      <div id="best">BEST —</div>
+    </div>
+
+    <div id="boostWrap">
+      <div id="boostBar"><div id="boostFill"></div></div>
+      <div id="boostLabel">BOOST</div>
+    </div>
+
+    <div id="marker"><div class="diamond"></div><div class="dist">120 m</div></div>
+    <div id="popups"></div>
   </div>
 
-  <div id="win" class="overlay hidden">
-    <h2>CIRCUIT<br/>COMPLETE</h2>
-    <div class="bigtime" id="wintime">0:00.0</div>
-    <div class="best" id="winscore"></div>
-    <div class="best" id="winbest"></div>
-    <div class="go">PRESS R TO FLY AGAIN</div>
+  <div id="flash"></div>
+  <div id="lowVignette"></div>
+
+  <!-- ============================================================== touch -->
+  <div id="touch">
+    <div id="stickZone"></div>
+    <div id="stickBase"></div>
+    <div id="stickNub"></div>
+    <button id="boostTouch">BOOST</button>
+    <button id="pauseBtn">II</button>
   </div>
 
-  <div id="foot">SKYLOOP &middot; original Rooms OS prototype &middot; Three.js</div>
+  <!-- =============================================================== menu -->
+  <div id="menu" class="screen">
+    <h1 class="title">SKYLOOP</h1>
+    <div class="tagline">SKY-RING TIME ATTACK</div>
+
+    <div class="charSelect" id="charSelect">
+      <div class="char sel" data-char="drift">
+        <div class="swatch" style="background:linear-gradient(135deg,#14495c,#7afcff)"></div>
+        <div class="nm">DRIFT</div><div class="dsc">balanced</div>
+      </div>
+      <div class="char" data-char="fox">
+        <div class="swatch" style="background:linear-gradient(135deg,#b9622e,#ffcf8a)"></div>
+        <div class="nm">FOX</div><div class="dsc">nimble</div>
+      </div>
+      <div class="char locked" data-char="aurora" id="charAurora" title="Generating…">
+        <div class="swatch" style="background:linear-gradient(135deg,#3a2c6f,#9a6e96)"></div>
+        <div class="nm">AURORA</div><div class="dsc">AI hero…</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <button class="btn" id="playBtn">PLAY</button>
+    </div>
+    <div class="settings row">
+      <button class="toggle on" id="soundToggle">♪ Sound</button>
+      <button class="toggle" id="howToggle">? How to play</button>
+    </div>
+    <div class="menuMeta" id="menuBest">Best score —</div>
+    <div class="hint hidden" id="howBox">
+      <b>W/S</b> or <b>↑/↓</b> dive &amp; climb &nbsp;·&nbsp; <b>A/D</b> or <b>←/→</b> bank &amp; turn<br/>
+      <b>Shift</b> boost &nbsp;·&nbsp; <b>Esc</b> pause &nbsp;·&nbsp; on phone: drag to steer, tap BOOST<br/>
+      Fly through rings to <b>add time</b>. Chain them for a <b>combo</b>. Gold rings = big bonus, cyan = refill boost. Don't let the clock hit zero.
+    </div>
+  </div>
+
+  <!-- ========================================================== countdown -->
+  <div id="countdown" class="screen hidden"><div id="countNum">3</div></div>
+
+  <!-- ============================================================== pause -->
+  <div id="pause" class="screen hidden">
+    <h1 class="title" style="font-size:clamp(34px,8vw,64px)">PAUSED</h1>
+    <div class="row">
+      <button class="btn" id="resumeBtn">RESUME</button>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="pauseRestart">RESTART</button>
+      <button class="btn ghost" id="pauseMenu">MENU</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ results -->
+  <div id="results" class="screen hidden">
+    <div id="gradeLabel">RANK</div>
+    <h1 id="grade">A</h1>
+    <div class="newbest" id="newbest"></div>
+    <div class="statGrid">
+      <div class="k">Score</div><div class="v" id="rScore">0</div>
+      <div class="k">Rings</div><div class="v" id="rRings">0</div>
+      <div class="k">Best combo</div><div class="v" id="rCombo">×0</div>
+      <div class="k">Top speed</div><div class="v" id="rSpeed">0</div>
+    </div>
+    <div class="row">
+      <button class="btn" id="retryBtn">RETRY</button>
+      <button class="btn ghost" id="resultsMenu">MENU</button>
+    </div>
+  </div>
+
+  <div id="foot">SKYLOOP 2.0 · Three.js</div>
 
   <script type="module" src="./src/main.js"></script>
 </body>

@@ -22,4 +22,5 @@ scripts/*.output
 scripts/magnific-call.mjs
 scripts/magnific-fetch.mjs
 scripts/args-*.json
-scripts/fetch-map.json
+scripts/fetch-map*.json
+scripts/_*.mjs

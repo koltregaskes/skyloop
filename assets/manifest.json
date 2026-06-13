@@ -1,0 +1,4 @@
+{
+  "_comment": "Optional generated assets. main.js loads heroAurora only if set here, so a not-yet-generated model never 404s. Set heroAurora to the GLB filename (under assets/) once the AI 3D hero exists.",
+  "heroAurora": "hero-aurora.glb"
+}
