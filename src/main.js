@@ -9,6 +9,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 import { createAudio } from './audio.js';
 
 const audio = createAudio();
@@ -44,31 +45,39 @@ function glowTexture(inner, outer) {
 
 // ------------------------------------------------------------ renderer/scene
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.08;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x9a6e96, 0.0013);
+scene.fog = new THREE.FogExp2(0xc7a3aa, 0.00085);
 
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 4000);
 camera.position.set(0, 90, 200);
 
-const sky = new THREE.Mesh(new THREE.SphereGeometry(1900, 24, 16), new THREE.ShaderMaterial({
-  side: THREE.BackSide, depthWrite: false, fog: false,
-  uniforms: { zenith: { value: new THREE.Color(0x241a4f) }, mid: { value: new THREE.Color(0x6f4d8c) }, horizon: { value: new THREE.Color(0xff9d76) }, below: { value: new THREE.Color(0x33264a) } },
-  vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-  fragmentShader: `uniform vec3 zenith; uniform vec3 mid; uniform vec3 horizon; uniform vec3 below; varying vec3 vDir;
-    void main(){ float h=vDir.y; vec3 col = h<0.0 ? mix(horizon,below,smoothstep(0.0,-0.45,h)) : h<0.25 ? mix(horizon,mid,smoothstep(0.0,0.25,h)) : mix(mid,zenith,smoothstep(0.25,0.9,h)); gl_FragColor=vec4(col,1.0); }`,
-}));
-scene.add(sky);
+// Lighting: cool hemisphere fill + warm key sun + a low warm rim to separate
+// islands from the sky. The equirectangular panorama below also drives
+// image-based lighting (scene.environment), which lifts every PBR material.
+scene.add(new THREE.HemisphereLight(0xcdb4ff, 0x4a3a63, 0.7));
+const sun = new THREE.DirectionalLight(0xffd9b0, 1.7); sun.position.set(-500, 420, -900); scene.add(sun);
+const rim = new THREE.DirectionalLight(0xffc9a0, 0.6); rim.position.set(380, 130, 640); scene.add(rim);
 
-scene.add(new THREE.HemisphereLight(0xcdb4ff, 0x3a2c4f, 0.85));
-const sun = new THREE.DirectionalLight(0xffd9b0, 2.0); sun.position.set(-500, 420, -900); scene.add(sun);
-const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,236,200,1)', 'rgba(255,160,90,0.55)'), blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
-sunSprite.position.set(-700, 540, -1500); sunSprite.scale.setScalar(560); scene.add(sunSprite);
+// Generated equirectangular dusk sky panorama = the actual sky + IBL.
+// Loaded from assets/manifest.json (skyPanorama) so a missing file never 404s;
+// until it loads, a flat dusk colour stands in.
+scene.background = new THREE.Color(0x2a1f4a);
+const pmrem = new THREE.PMREMGenerator(renderer); pmrem.compileEquirectangularShader();
+fetch('./assets/manifest.json').then((r) => (r.ok ? r.json() : Promise.reject(new Error('no manifest')))).then((m) => {
+  if (!m.skyPanorama) return;
+  new THREE.TextureLoader().load(`./assets/${m.skyPanorama}`, (tex) => {
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    scene.background = tex;
+    scene.environment = pmrem.fromEquirectangular(tex).texture;
+  });
+}).catch(() => {});
 
 // ---------------------------------------------------------------- the world
 const world = new THREE.Group(); scene.add(world);
@@ -103,6 +112,33 @@ const hub = makeIsland(34, true); hub.position.set(0, 48, 0); world.add(hub);
 for (let i = 0; i < 18; i++) { const w = rand(2.4, 5), h = rand(6, 26), a = rand(0, Math.PI * 2), d = rand(6, 26); const x = Math.cos(a) * d, z = Math.sin(a) * d; const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), towerMat); b.position.set(x, 48 + h * 0.5, z); b.rotation.y = rand(0, Math.PI); world.add(b); const s = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, h * 0.75, w * 0.16), windowMat); s.position.set(x, 48 + h * 0.5, z); s.rotation.y = b.rotation.y; s.translateZ(w * 0.48); world.add(s); }
 const beaconTip = new THREE.Mesh(new THREE.SphereGeometry(2.6, 12, 12), new THREE.MeshStandardMaterial({ color: 0xfff3d0, emissive: 0xffc36b, emissiveIntensity: 2.4 })); beaconTip.position.set(0, 78, 0); world.add(beaconTip);
 const sea = new THREE.Mesh(new THREE.CircleGeometry(1700, 48), new THREE.MeshStandardMaterial({ color: 0x16314f, roughness: 0.55, metalness: 0.25 })); sea.rotation.x = -Math.PI / 2; sea.position.y = -42; world.add(sea);
+
+// The world is static, so merge its hundreds of meshes into one mesh per
+// material (~250 draw calls -> ~9). Only mutates the tree if every merge
+// succeeds, so a failure leaves the unmerged world intact.
+function mergeStatic(root) {
+  root.updateMatrixWorld(true);
+  const byMat = new Map(); const originals = [];
+  root.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.material || o.material.transparent) return;
+    const k = o.material.uuid;
+    if (!byMat.has(k)) byMat.set(k, { mat: o.material, geos: [] });
+    const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld);
+    for (const a of Object.keys(g.attributes)) { if (!['position', 'normal', 'uv'].includes(a)) g.deleteAttribute(a); }
+    byMat.get(k).geos.push(g); originals.push(o);
+  });
+  const merged = [];
+  try {
+    for (const { mat, geos } of byMat.values()) {
+      const mg = BufferGeometryUtils.mergeGeometries(geos, false);
+      if (!mg) throw new Error('merge returned null');
+      merged.push(new THREE.Mesh(mg, mat)); geos.forEach((g) => g.dispose());
+    }
+  } catch (e) { console.warn('mergeStatic skipped:', e.message); return; }
+  for (const o of originals) o.parent && o.parent.remove(o);
+  for (const mesh of merged) { mesh.frustumCulled = false; root.add(mesh); }
+}
+mergeStatic(world);
 
 const cloudGeo = new THREE.IcosahedronGeometry(1, 0);
 const clouds = new THREE.InstancedMesh(cloudGeo, new THREE.MeshLambertMaterial({ color: 0xfff4ec, transparent: true, opacity: 0.8 }), 80);
@@ -167,11 +203,11 @@ const trailGeo = new THREE.BufferGeometry(); trailGeo.setAttribute('position', n
 const trail = new THREE.Points(trailGeo, new THREE.PointsMaterial({ size: 1.1, vertexColors: true, transparent: true, map: glowTexture('rgba(190,245,255,1)', 'rgba(100,200,255,0.45)'), blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true })); trail.frustumCulled = false; scene.add(trail);
 
 // Collect burst
-const BURST_N = 80; const burstPos = new Float32Array(BURST_N * 3); const burstVel = [];
+const BURST_N = 80; const burstPos = new Float32Array(BURST_N * 3); const burstVel = Array.from({ length: BURST_N }, () => new THREE.Vector3());
 const burstGeo = new THREE.BufferGeometry(); burstGeo.setAttribute('position', new THREE.BufferAttribute(burstPos, 3));
 const burst = new THREE.Points(burstGeo, new THREE.PointsMaterial({ size: 1.3, color: 0xffc36b, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); burst.frustumCulled = false; scene.add(burst);
 let burstLife = 0;
-function fireBurst(centre, color) { burst.material.color.set(color); for (let i = 0; i < BURST_N; i++) { burstPos[i * 3] = centre.x; burstPos[i * 3 + 1] = centre.y; burstPos[i * 3 + 2] = centre.z; burstVel[i] = new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize().multiplyScalar(rand(10, 30)); } burstGeo.attributes.position.needsUpdate = true; burstLife = 1; }
+function fireBurst(centre, color) { burst.material.color.set(color); for (let i = 0; i < BURST_N; i++) { burstPos[i * 3] = centre.x; burstPos[i * 3 + 1] = centre.y; burstPos[i * 3 + 2] = centre.z; burstVel[i].set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize().multiplyScalar(rand(10, 30)); } burstGeo.attributes.position.needsUpdate = true; burstLife = 1; }
 
 // ----------------------------------------------------------- the ring course
 const RING_TYPES = {
@@ -219,7 +255,7 @@ function spawnRing() {
 }
 
 function resetCourse() {
-  for (const r of course) scene.remove(r.group);
+  for (const r of course) disposeRing(r);
   course.length = 0; targetIndex = 0;
   rng = mulberry32(SEED + state.runs);
   courseHead.set(0, 100, 120);
@@ -228,32 +264,34 @@ function resetCourse() {
 }
 
 // ----------------------------------------------------------- post-processing
-const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { samples: 4, type: THREE.HalfFloatType }));
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { samples: 2, type: THREE.HalfFloatType }));
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.9, 0.55, 0.6);
 composer.addPass(bloom);
 
+// Cheap, clean post: NO film grain. A single tap + a soft vignette at cruise;
+// the radial speed-streak and chromatic fringe only switch on while boosting
+// (a true no-op otherwise), so the common case is one texture fetch per pixel.
 const FXShader = {
-  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, grain: { value: 0.03 }, vignette: { value: 0.34 }, speed: { value: 0 }, aberration: { value: 0 }, flash: { value: 0 } },
+  uniforms: { tDiffuse: { value: null }, vignette: { value: 0.3 }, speed: { value: 0 }, aberration: { value: 0 }, flash: { value: 0 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform float time; uniform float grain; uniform float vignette; uniform float speed; uniform float aberration; uniform float flash;
+    uniform sampler2D tDiffuse; uniform float vignette; uniform float speed; uniform float aberration; uniform float flash;
     varying vec2 vUv;
-    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
     void main(){
       vec2 dir = vUv - 0.5;
-      // radial speed blur — samples streak toward centre as speed rises
-      vec3 col = vec3(0.0); float total = 0.0;
-      for (int i = 0; i < 6; i++){ float t = float(i)/5.0; float s = 1.0 - t*speed*0.18; vec2 uv = 0.5 + dir*s; float w = 1.0 - t*0.5; col += texture2D(tDiffuse, uv).rgb * w; total += w; }
-      col /= total;
-      // chromatic aberration toward the edges, stronger on boost
-      float ab = aberration*0.012 + length(dir)*aberration*0.01;
-      col.r = texture2D(tDiffuse, vUv + dir*ab).r;
-      col.b = texture2D(tDiffuse, vUv - dir*ab).b;
-      // grain + vignette + flash
-      float n = hash(vUv*(1.0+fract(time))*1000.0)*2.0-1.0;
-      col += n*grain;
-      col *= 1.0 - smoothstep(0.3,0.85, length(dir)*1.05)*vignette;
+      vec3 col = texture2D(tDiffuse, vUv).rgb;
+      if (speed > 0.001) {
+        vec3 acc = vec3(0.0); float total = 0.0;
+        for (int i = 0; i < 4; i++){ float t = float(i)/3.0; float s = 1.0 - t*speed*0.12; float w = 1.0 - t*0.5; acc += texture2D(tDiffuse, 0.5 + dir*s).rgb * w; total += w; }
+        col = acc/total;
+      }
+      if (aberration > 0.001) {
+        float ab = aberration*0.006 + length(dir)*aberration*0.005;
+        col.r = texture2D(tDiffuse, vUv + dir*ab).r;
+        col.b = texture2D(tDiffuse, vUv - dir*ab).b;
+      }
+      col *= 1.0 - smoothstep(0.32, 0.9, length(dir)*1.05)*vignette;
       col += flash;
       gl_FragColor = vec4(col,1.0);
     }`,
@@ -366,6 +404,9 @@ boostBtn.addEventListener('pointerleave', () => { touchBoost = false; boostBtn.c
 // ----------------------------------------------------------------- main loop
 const clock = new THREE.Clock();
 const fwd = new THREE.Vector3(), camOffset = new THREE.Vector3(), camTarget = new THREE.Vector3(), lookTarget = new THREE.Vector3(), toCentre = new THREE.Vector3(), ndc = new THREE.Vector3(), trailSpawn = new THREE.Vector3(), tmp = new THREE.Vector3();
+// Pre-allocated Eulers reused every frame (no per-frame heap churn).
+const eFwd = new THREE.Euler(0, 0, 0, 'YXZ'), eHero = new THREE.Euler(0, 0, 0, 'YXZ'), eCam = new THREE.Euler(0, 0, 0, 'YXZ');
+let frameCount = 0;
 
 function animate() {
   const dtReal = Math.min(clock.getDelta(), 0.05);
@@ -411,7 +452,7 @@ function animate() {
   state.speed = THREE.MathUtils.damp(state.speed, playing ? target : (state.mode === STATE.COUNTDOWN ? BASE_SPEED * 0.3 : 0), 2.4, dt);
   if (playing) state.topSpeed = Math.max(state.topSpeed, state.speed);
 
-  fwd.set(0, 0, -1).applyEuler(new THREE.Euler(state.pitch, state.yaw, 0, 'YXZ'));
+  eFwd.set(state.pitch, state.yaw, 0); fwd.set(0, 0, -1).applyEuler(eFwd);
   if (state.mode === STATE.PLAYING || state.mode === STATE.COUNTDOWN) hero.position.addScaledVector(fwd, state.speed * dt);
 
   // soft bounds
@@ -419,14 +460,15 @@ function animate() {
   if (horiz > WORLD_RADIUS) { const desired = Math.atan2(toCentre.x / horiz, toCentre.z / horiz) + Math.PI; let d = desired - state.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); state.yaw += d * dt * 1.2; }
   hero.position.y = THREE.MathUtils.clamp(hero.position.y, -10, 360);
 
-  hero.quaternion.setFromEuler(new THREE.Euler(state.pitch, state.yaw, 0, 'YXZ'));
+  eHero.set(state.pitch, state.yaw, 0); hero.quaternion.setFromEuler(eHero);
   heroPose.rotation.z = state.roll; heroPose.rotation.x = pitchIn * 0.16;
   if (glbMixer) glbMixer.update(dt);
 
-  // cape
+  // cape — normals only need refreshing a few times a second, not every frame
+  frameCount++;
   const cp = capeGeo.attributes.position; const flutter = 0.1 + (state.speed / BOOST_SPEED) * 0.22;
   for (let i = 0; i < cp.count; i++) { const bx = capeBase[i * 3], bz = capeBase[i * 3 + 2], tail = bz / 2.3; cp.setY(i, Math.sin(bz * 2.4 - t * 7) * flutter * tail + Math.sin(bx * 3 + t * 4.4) * flutter * 0.35 * tail + tail * tail * 0.5); }
-  cp.needsUpdate = true; capeGeo.computeVertexNormals();
+  cp.needsUpdate = true; if ((frameCount & 3) === 0) capeGeo.computeVertexNormals();
 
   const boostAmt = THREE.MathUtils.clamp((state.speed - BASE_SPEED) / (BOOST_SPEED - BASE_SPEED), 0, 1);
   boostGlow.scale.setScalar(0.001 + boostAmt * 1.4 + Math.sin(t * 31) * 0.1 * boostAmt);
@@ -463,7 +505,7 @@ function animate() {
 
   // camera
   const camDist = 9.5 + boostAmt * 3.0;
-  camOffset.set(0, 2.6 + state.pitch * -1.2, camDist).applyEuler(new THREE.Euler(state.pitch * 0.45, state.yaw, 0, 'YXZ'));
+  eCam.set(state.pitch * 0.45, state.yaw, 0); camOffset.set(0, 2.6 + state.pitch * -1.2, camDist).applyEuler(eCam);
   camTarget.copy(hero.position).add(camOffset);
   camera.position.lerp(camTarget, 1 - Math.exp(-6.5 * dtReal));
   state.shake = Math.max(0, state.shake - dtReal * 2.2);
@@ -473,10 +515,8 @@ function animate() {
   camera.fov = THREE.MathUtils.damp(camera.fov, 62 + boostAmt * 18 + (state.hitStop > 0 ? -6 : 0), 5, dtReal); camera.updateProjectionMatrix();
 
   // post + HUD
-  fxPass.uniforms.time.value = t;
   fxPass.uniforms.speed.value = THREE.MathUtils.damp(fxPass.uniforms.speed.value, boostAmt, 6, dtReal);
   fxPass.uniforms.aberration.value = boostAmt;
-  fxPass.uniforms.grain.value = 0.03 + boostAmt * 0.035;
   bloom.strength = 0.9 + boostAmt * 0.35;
 
   if (playing || state.mode === STATE.RESULTS) {
@@ -527,13 +567,20 @@ function collectRing(r) {
   advanceTarget();
 }
 function missRing(r) { r.collected = true; r.group.visible = false; state.combo = 0; advanceTarget(); }
-function advanceTarget() { targetIndex++; while (course.length - targetIndex < AHEAD) spawnRing(); }
+function disposeRing(r) { scene.remove(r.group); r.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
+function advanceTarget() {
+  targetIndex++;
+  while (course.length - targetIndex < AHEAD) spawnRing();
+  // Retire rings well behind the player so course[] and the scene graph stay
+  // bounded (~13 rings) instead of growing for the entire run.
+  while (targetIndex > 8) { disposeRing(course.shift()); targetIndex--; }
+}
 
 // initial menu
 toMenu();
 function loop() { animate(); requestAnimationFrame(loop); }
+// (No hidden-tab render fallback — rendering a backgrounded tab wastes GPU/battery.)
 requestAnimationFrame(loop);
-setInterval(() => { if (document.hidden) animate(); }, 33);
 
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.setSize(innerWidth, innerHeight); });
 

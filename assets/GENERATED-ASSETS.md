@@ -21,6 +21,15 @@ These came out remarkably close to SKYLOOP's actual procedural world (teal hero 
 amber cape, floating islands, amber rings, lit beacon city), so they double as
 honest key art rather than generic splash images.
 
+## In-game sky (tool: `images_generate`, model `seedream-4-5`, 2:1)
+
+- **sky-b.jpg** — equirectangular (2:1) dusk panorama used as the actual in-game
+  sky (`scene.background`) AND the image-based lighting environment
+  (`scene.environment` via PMREM), so every PBR surface catches the dusk. This
+  is generated art inside the 3D world, not just a menu backdrop. **sky-a.jpg**
+  is an alternate. Prompt: a seamless equirectangular dusk sky, deep indigo
+  zenith to warm amber/peach horizon, soft volumetric clouds, no ground.
+
 ## Hero concept (tool: `images_generate`, model `seedream-4-5`, 2:3)
 
 - **hero-concept.jpg** — the "Aurora" character concept (front A-pose, plain

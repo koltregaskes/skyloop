@@ -1,4 +1,5 @@
 {
-  "_comment": "Optional generated assets. main.js loads heroAurora only if set here, so a not-yet-generated model never 404s. Set heroAurora to the GLB filename (under assets/) once the AI 3D hero exists.",
-  "heroAurora": "hero-aurora.glb"
+  "_comment": "Optional generated assets, loaded only if listed here so a not-yet-generated file never 404s. heroAurora = AI 3D hero GLB; skyPanorama = equirectangular (2:1) sky image used as the in-game sky + IBL environment.",
+  "heroAurora": "hero-aurora.glb",
+  "skyPanorama": "sky-b.jpg"
 }
