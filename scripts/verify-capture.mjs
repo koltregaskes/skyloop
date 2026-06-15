@@ -58,6 +58,8 @@ check('passing rings extends the clock', st.time > before, `time ${before.toFixe
 
 const audio = await page.evaluate(() => window.__sky.audio.status());
 check('audio engine running + gameplay music target', audio.ctxState === 'running' && audio.music === 'gameplay' && audio.ambient === true, `ctx ${audio.ctxState}, music ${audio.music}, menu=${audio.menuLoaded} gameplay=${audio.gameplayLoaded}`);
+const voice = await page.evaluate(() => ({ loaded: window.__sky.audio.status().voicesLoaded, said: window.__sky.audio.say('go', { force: true }) }));
+check('ElevenLabs announcer voice loaded + plays', voice.loaded.length >= 12 && voice.said === true, `${voice.loaded.length} clips, say()=${voice.said}`);
 
 // Pause / resume.
 await page.keyboard.press('Escape');

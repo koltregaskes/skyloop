@@ -13,6 +13,8 @@ const MANIFEST_URL = './assets/audio/manifest.json';
 export function createAudio() {
   let ctx = null, master = null, muted = false, started = false;
   const buffers = {};                 // one-shot SFX samples
+  const voices = {};                  // ElevenLabs announcer clips, keyed by cue
+  let lastVoiceAt = -10;              // throttle so callouts never stack
   const music = { menu: null, gameplay: null }; // { buffer, source, gain }
   let musicTarget = 'menu';
   let ambient = null;                 // { setBoost }
@@ -23,6 +25,7 @@ export function createAudio() {
     ctx = new AC(); master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
     fetch(MANIFEST_URL).then((r) => r.ok ? r.json() : Promise.reject()).then((m) => {
       for (const [name, file] of Object.entries(m.samples || {})) load(`./assets/audio/${file}`, (b) => { buffers[name] = b; });
+      for (const [name, file] of Object.entries(m.voice || {})) load(`./assets/audio/${file}`, (b) => { voices[name] = b; });
       if (m.music) load(`./assets/audio/${m.music}`, (b) => startMusic('menu', b));
       if (m.musicGameplay) load(`./assets/audio/${m.musicGameplay}`, (b) => startMusic('gameplay', b));
     }).catch(() => {});
@@ -91,6 +94,20 @@ export function createAudio() {
     count() { if (!ctx || muted) return; blip(440, { type: 'square', dur: 0.2, peak: 0.1 }); },
     go() { if (!ctx || muted) return; blip(880, { type: 'square', dur: 0.4, peak: 0.14 }); blip(1320, { type: 'triangle', dur: 0.4, peak: 0.08, delay: 0.02 }); },
     setBoost(a) { if (ambient) ambient.setBoost(a); },
-    status() { return { ctxState: ctx ? ctx.state : 'none', muted, ambient: !!ambient, music: musicTarget, menuLoaded: !!music.menu, gameplayLoaded: !!music.gameplay, samplesLoaded: Object.keys(buffers) }; },
+    // ElevenLabs announcer. force=true bypasses the anti-stacking throttle
+    // (used for countdown/rank where every clip should land).
+    say(name, { force = false, gain = 1.0 } = {}) {
+      if (!ctx || muted || !voices[name]) return false;
+      const now = ctx.currentTime;
+      if (!force && now - lastVoiceAt < 0.6) return false;
+      lastVoiceAt = now;
+      const s = ctx.createBufferSource(); s.buffer = voices[name];
+      const g = ctx.createGain(); g.gain.value = gain; s.connect(g).connect(master); s.start();
+      // brief music duck so the voice sits on top
+      for (const which of ['menu', 'gameplay']) { const mu = music[which]; if (mu && mu.gain.gain.value > 0.01) { const base = mu.gain.gain.value; mu.gain.gain.cancelScheduledValues(now); mu.gain.gain.setValueAtTime(base * 0.5, now); mu.gain.gain.setTargetAtTime(base, now + 0.5, 0.4); } }
+      return true;
+    },
+    hasVoice() { return Object.keys(voices).length > 0; },
+    status() { return { ctxState: ctx ? ctx.state : 'none', muted, ambient: !!ambient, music: musicTarget, menuLoaded: !!music.menu, gameplayLoaded: !!music.gameplay, samplesLoaded: Object.keys(buffers), voicesLoaded: Object.keys(voices) }; },
   };
 }

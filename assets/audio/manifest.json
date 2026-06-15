@@ -1,6 +1,12 @@
 {
-  "_comment": "Generated audio for SKYLOOP. 'samples' maps one-shot SFX cues (ring/boost/win) to files; missing cues fall back to live WebAudio synthesis. 'music' is an optional looping background bed. See assets/GENERATED-ASSETS.md for provenance.",
+  "_comment": "Generated audio for SKYLOOP. 'samples' = one-shot SFX cues (synth fallback if missing); 'music'/'musicGameplay' = looping beds; 'voice' = ElevenLabs announcer clips. See assets/GENERATED-ASSETS.md.",
   "samples": {},
   "music": "music-flight.mp3",
-  "musicGameplay": "music-gameplay.mp3"
+  "musicGameplay": "music-gameplay.mp3",
+  "voice": {
+    "3": "vo-3.mp3", "2": "vo-2.mp3", "1": "vo-1.mp3", "go": "vo-go.mp3",
+    "perfect": "vo-perfect.mp3", "combo": "vo-combo.mp3", "time": "vo-time.mp3",
+    "rank-s": "vo-rank-s.mp3", "rank-a": "vo-rank-a.mp3", "rank-b": "vo-rank-b.mp3",
+    "rank-c": "vo-rank-c.mp3", "rank-d": "vo-rank-d.mp3"
+  }
 }

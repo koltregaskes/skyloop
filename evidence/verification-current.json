@@ -1,6 +1,6 @@
 {
   "url": "http://127.0.0.1:8431/?seed=7",
-  "started_at": "2026-06-14T17:31:27.524Z",
+  "started_at": "2026-06-15T08:49:11.794Z",
   "checks": [
     {
       "name": "loads to menu",
@@ -38,6 +38,11 @@
       "detail": "ctx running, music gameplay, menu=true gameplay=true"
     },
     {
+      "name": "ElevenLabs announcer voice loaded + plays",
+      "pass": true,
+      "detail": "12 clips, say()=true"
+    },
+    {
       "name": "Escape pauses the game",
       "pass": true,
       "detail": "pause overlay shown"
@@ -73,7 +78,7 @@
       "detail": "clean"
     }
   ],
-  "finished_at": "2026-06-14T17:32:48.121Z",
+  "finished_at": "2026-06-15T08:50:36.094Z",
   "console_errors": [],
   "pass": true
 }

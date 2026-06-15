@@ -46,6 +46,18 @@ honest key art rather than generic splash images.
   during play. Creation `3GL3iWkREY`. Prompt: energetic uplifting electronic
   flight music ~120 BPM, soaring leads, arpeggiated bass, building intensity.
 
+## Announcer voice (ElevenLabs MCP, `text_to_speech`, voice "Roger")
+
+- **vo-3 / vo-2 / vo-1 / vo-go** — countdown.
+- **vo-perfect / vo-combo** — reward callouts (combo at ×5/×10/×15/×20).
+- **vo-time** — run-end "Time!".
+- **vo-rank-s … vo-rank-d** — rank reveal on the results screen.
+
+Generated directly via the connected **ElevenLabs MCP** `text_to_speech`
+(voice `Roger - Laid-Back, Casual, Resonant`, `eleven_multilingual_v2`). Note:
+this ElevenLabs key allows TTS but NOT `sound_generation` / `music_generation`,
+so SFX/music still come from synthesis and Magnific's ElevenLabs backend.
+
 Ambient prompt (music-flight):
 > Dreamy ambient flight music bed, weightless and uplifting, soft warm synth
 > pads, gentle arpeggios, airy bells, subtle slow pulse, a sense of soaring

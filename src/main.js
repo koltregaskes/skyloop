@@ -343,13 +343,13 @@ function startCountdown() {
   state.timeLeft = START_TIME; state.score = 0; state.displayScore = 0; state.combo = 0; state.maxCombo = 0;
   state.ringsHit = 0; state.boost = BOOST_MAX; state.topSpeed = 0; state.runs++;
   resetCourse();
-  state.countN = 3; state.countT = 0; ui.countNum.textContent = '3'; audio.count();
+  state.countN = 3; state.countT = 0; ui.countNum.textContent = '3'; if (!audio.say('3', { force: true })) audio.count();
 }
 function startPlaying() { state.mode = STATE.PLAYING; showScreen(null); }
 function pauseGame() { if (state.mode !== STATE.PLAYING) return; state.mode = STATE.PAUSED; showScreen('pause'); }
 function resumeGame() { if (state.mode !== STATE.PAUSED) return; state.mode = STATE.PLAYING; showScreen(null); }
 function endRun() {
-  state.mode = STATE.RESULTS; showScreen('results'); audio.toMenu(); audio.win();
+  state.mode = STATE.RESULTS; showScreen('results'); audio.toMenu();
   const sc = state.score; const prev = bestScore(); const isBest = sc > prev;
   if (isBest) localStorage.setItem('skyloop2-best', String(sc));
   // grade by score thresholds
@@ -358,6 +358,9 @@ function endRun() {
   ui.grade.textContent = g; ui.grade.style.color = gc; ui.grade.style.textShadow = `0 0 50px ${gc}88`;
   ui.newbest.textContent = isBest ? 'NEW BEST!' : '';
   ui.rScore.textContent = sc; ui.rRings.textContent = state.ringsHit; ui.rCombo.textContent = `×${state.maxCombo}`; ui.rSpeed.textContent = Math.round(state.topSpeed);
+  // Announcer: "Time!" then the rank reveal a beat later (fall back to the win chime).
+  if (!audio.say('time', { force: true })) audio.win();
+  setTimeout(() => audio.say(`rank-${g.toLowerCase()}`, { force: true }), 900);
 }
 
 // ----------------------------------------------------------------- input
@@ -414,7 +417,7 @@ function animate() {
 
   if (state.mode === STATE.COUNTDOWN) {
     state.countT += dtReal;
-    if (state.countT >= 1) { state.countT = 0; state.countN--; if (state.countN > 0) { ui.countNum.textContent = String(state.countN); ui.countNum.style.animation = 'none'; void ui.countNum.offsetWidth; ui.countNum.style.animation = 'countpop 1s ease-out'; audio.count(); } else { ui.countNum.textContent = 'GO'; startPlaying(); audio.go(); } }
+    if (state.countT >= 1) { state.countT = 0; state.countN--; if (state.countN > 0) { ui.countNum.textContent = String(state.countN); ui.countNum.style.animation = 'none'; void ui.countNum.offsetWidth; ui.countNum.style.animation = 'countpop 1s ease-out'; if (!audio.say(String(state.countN), { force: true })) audio.count(); } else { ui.countNum.textContent = 'GO'; startPlaying(); audio.say('go', { force: true }); audio.go(); } }
   }
 
   const playing = state.mode === STATE.PLAYING;
@@ -558,6 +561,10 @@ function collectRing(r) {
   flash(perfect ? 0.32 : 0.16);
   fireBurst(r.group.position, r.def.color);
   audio.ring(state.combo, r.type);
+  // Announcer callouts (throttled so they never stack): a combo milestone wins
+  // over a perfect call when both land at once.
+  if (state.combo === 5 || state.combo === 10 || state.combo === 15 || state.combo === 20) audio.say('combo');
+  else if (perfect) audio.say('perfect');
   // popups at the ring's screen position
   ndc.copy(r.group.position).project(camera);
   const px = (ndc.x * 0.5 + 0.5) * innerWidth, py = (-ndc.y * 0.5 + 0.5) * innerHeight;
