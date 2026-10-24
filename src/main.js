@@ -107,38 +107,40 @@ function makeIsland(radius, bare = false) {
   return g;
 }
 
-for (let i = 0; i < 34; i++) { const r = rand(8, 26), a = rand(0, Math.PI * 2), d = rand(80, 540); const isl = makeIsland(r); isl.position.set(Math.cos(a) * d, rand(25, 175), Math.sin(a) * d); isl.rotation.y = rand(0, Math.PI * 2); world.add(isl); }
-const hub = makeIsland(34, true); hub.position.set(0, 48, 0); world.add(hub);
-for (let i = 0; i < 18; i++) { const w = rand(2.4, 5), h = rand(6, 26), a = rand(0, Math.PI * 2), d = rand(6, 26); const x = Math.cos(a) * d, z = Math.sin(a) * d; const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), towerMat); b.position.set(x, 48 + h * 0.5, z); b.rotation.y = rand(0, Math.PI); world.add(b); const s = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, h * 0.75, w * 0.16), windowMat); s.position.set(x, 48 + h * 0.5, z); s.rotation.y = b.rotation.y; s.translateZ(w * 0.48); world.add(s); }
-const beaconTip = new THREE.Mesh(new THREE.SphereGeometry(2.6, 12, 12), new THREE.MeshStandardMaterial({ color: 0xfff3d0, emissive: 0xffc36b, emissiveIntensity: 2.4 })); beaconTip.position.set(0, 78, 0); world.add(beaconTip);
-const sea = new THREE.Mesh(new THREE.CircleGeometry(1700, 48), new THREE.MeshStandardMaterial({ color: 0x16314f, roughness: 0.55, metalness: 0.25 })); sea.rotation.x = -Math.PI / 2; sea.position.y = -42; world.add(sea);
+// Sea far below + a soft glowing central beacon as a landmark.
+const sea = new THREE.Mesh(new THREE.CircleGeometry(1700, 48), new THREE.MeshStandardMaterial({ color: 0x16314f, roughness: 0.5, metalness: 0.3 }));
+sea.rotation.x = -Math.PI / 2; sea.position.y = -54; world.add(sea);
+const beaconTip = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 16), new THREE.MeshStandardMaterial({ color: 0xfff3d0, emissive: 0xffc36b, emissiveIntensity: 2.6 }));
+beaconTip.position.set(0, 60, 0); world.add(beaconTip);
 
-// The world is static, so merge its hundreds of meshes into one mesh per
-// material (~250 draw calls -> ~9). Only mutates the tree if every merge
-// succeeds, so a failure leaves the unmerged world intact.
-function mergeStatic(root) {
-  root.updateMatrixWorld(true);
-  const byMat = new Map(); const originals = [];
-  root.traverse((o) => {
-    if (!o.isMesh || !o.geometry || !o.material || o.material.transparent) return;
-    const k = o.material.uuid;
-    if (!byMat.has(k)) byMat.set(k, { mat: o.material, geos: [] });
-    const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld);
-    for (const a of Object.keys(g.attributes)) { if (!['position', 'normal', 'uv'].includes(a)) g.deleteAttribute(a); }
-    byMat.get(k).geos.push(g); originals.push(o);
+// The world is built from AI-generated 3D island models (assets/island-*.glb),
+// scattered and scaled. Loaded async from the manifest so a missing variant
+// never 404s; the layout is seeded so it stays stable. Clones share geometry,
+// so each placement is cheap.
+const islandPlacements = [{ x: 0, y: 30, z: 0, r: 84, rotY: 0 }];
+for (let i = 0; i < 17; i++) { const a = rand(0, Math.PI * 2), d = rand(120, 540); islandPlacements.push({ x: Math.cos(a) * d, y: rand(8, 158), z: Math.sin(a) * d, r: rand(28, 58), rotY: rand(0, Math.PI * 2) }); }
+const islandVariants = [];
+const islandLoader = new GLTFLoader();
+function placeIslands() {
+  if (!islandVariants.length) return;
+  islandPlacements.forEach((p, i) => {
+    const inst = islandVariants[i % islandVariants.length].clone(true);
+    inst.scale.multiplyScalar(p.r); inst.position.set(p.x, p.y, p.z); inst.rotation.y = p.rotY;
+    world.add(inst);
   });
-  const merged = [];
-  try {
-    for (const { mat, geos } of byMat.values()) {
-      const mg = BufferGeometryUtils.mergeGeometries(geos, false);
-      if (!mg) throw new Error('merge returned null');
-      merged.push(new THREE.Mesh(mg, mat)); geos.forEach((g) => g.dispose());
-    }
-  } catch (e) { console.warn('mergeStatic skipped:', e.message); return; }
-  for (const o of originals) o.parent && o.parent.remove(o);
-  for (const mesh of merged) { mesh.frustumCulled = false; root.add(mesh); }
 }
-mergeStatic(world);
+fetch('./assets/manifest.json').then((r) => (r.ok ? r.json() : null)).then((m) => {
+  const list = (m && m.islands) || [];
+  let pending = list.length; if (!pending) return;
+  list.forEach((file) => islandLoader.load(`./assets/${file}`, (gltf) => {
+    const g = gltf.scene;
+    const box = new THREE.Box3().setFromObject(g); const sz = box.getSize(new THREE.Vector3()); const c = box.getCenter(new THREE.Vector3());
+    g.position.sub(c);
+    const holder = new THREE.Group(); holder.add(g); holder.scale.setScalar(1 / Math.max(sz.x, sz.z, 0.001));
+    islandVariants.push(holder);
+    if (--pending === 0) placeIslands();
+  }, undefined, () => { if (--pending === 0) placeIslands(); }));
+}).catch(() => {});
 
 const cloudGeo = new THREE.IcosahedronGeometry(1, 0);
 const clouds = new THREE.InstancedMesh(cloudGeo, new THREE.MeshLambertMaterial({ color: 0xfff4ec, transparent: true, opacity: 0.8 }), 80);
