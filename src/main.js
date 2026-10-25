@@ -272,7 +272,7 @@ const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.
 composer.addPass(bloom);
 
 // Cheap, clean post: NO film grain. A single tap + a soft vignette at cruise;
-// the radial speed-streak and chromatic fringe only switch on while boosting
+// radial speed-streak follows airspeed; chromatic fringe still waits for boost
 // (a true no-op otherwise), so the common case is one texture fetch per pixel.
 const FXShader = {
   uniforms: { tDiffuse: { value: null }, vignette: { value: 0.3 }, speed: { value: 0 }, aberration: { value: 0 }, flash: { value: 0 } },
@@ -520,7 +520,11 @@ function animate() {
   camera.fov = THREE.MathUtils.damp(camera.fov, 62 + boostAmt * 18 + (state.hitStop > 0 ? -6 : 0), 5, dtReal); camera.updateProjectionMatrix();
 
   // post + HUD
-  fxPass.uniforms.speed.value = THREE.MathUtils.damp(fxPass.uniforms.speed.value, boostAmt, 6, dtReal);
+  // Cruise already moves the hero; the streak used to wait for boost, so level
+  // flight read as a hover. Drive it from airspeed, and let boost still max it.
+  const motion = THREE.MathUtils.clamp((state.speed - 12) / (BOOST_SPEED - 12), 0, 1);
+  const streak = (playing || state.mode === STATE.COUNTDOWN) ? motion : 0;
+  fxPass.uniforms.speed.value = THREE.MathUtils.damp(fxPass.uniforms.speed.value, streak, 6, dtReal);
   fxPass.uniforms.aberration.value = boostAmt;
   bloom.strength = 0.9 + boostAmt * 0.35;
 
