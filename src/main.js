@@ -309,7 +309,7 @@ const ui = {
   marker: $('marker'), markerDist: document.querySelector('#marker .dist'), popups: $('popups'),
   flash: $('flash'), lowVig: $('lowVignette'),
   menu: $('menu'), countdown: $('countdown'), countNum: $('countNum'), pause: $('pause'), results: $('results'),
-  grade: $('grade'), newbest: $('newbest'), rScore: $('rScore'), rRings: $('rRings'), rCombo: $('rCombo'), rSpeed: $('rSpeed'),
+  grade: $('grade'), gradeLabel: $('gradeLabel'), endRule: $('endRule'), newbest: $('newbest'), rScore: $('rScore'), rRings: $('rRings'), rCombo: $('rCombo'), rSpeed: $('rSpeed'),
   menuBest: $('menuBest'), touch: $('touch'),
 };
 
@@ -350,14 +350,28 @@ function startCountdown() {
 function startPlaying() { state.mode = STATE.PLAYING; showScreen(null); }
 function pauseGame() { if (state.mode !== STATE.PLAYING) return; state.mode = STATE.PAUSED; showScreen('pause'); }
 function resumeGame() { if (state.mode !== STATE.PAUSED) return; state.mode = STATE.PLAYING; showScreen(null); }
+// One source for the ranks the menu explains and the results screen awards.
+const RANK_BANDS = [['S', 6000], ['A', 4000], ['B', 2400], ['C', 1200]];
+function rankFor(score) {
+  for (const [letter, min] of RANK_BANDS) if (score >= min) return letter;
+  return 'D';
+}
+const rankLine = $('rankLine');
+if (rankLine) {
+  rankLine.textContent = `Ranks: ${RANK_BANDS.map(([letter, min]) => `${letter} from ${min}`).join(', ')}, D below ${RANK_BANDS[RANK_BANDS.length - 1][1]}.`;
+}
+
 function endRun() {
   state.mode = STATE.RESULTS; showScreen('results'); audio.toMenu();
   const sc = state.score; const prev = bestScore(); const isBest = sc > prev;
   if (isBest) localStorage.setItem('skyloop2-best', String(sc));
-  // grade by score thresholds
-  const g = sc >= 6000 ? 'S' : sc >= 4000 ? 'A' : sc >= 2400 ? 'B' : sc >= 1200 ? 'C' : 'D';
+  const g = rankFor(sc);
   const gc = { S: '#ffd86b', A: '#7afcff', B: '#9be38a', C: '#ffb347', D: '#ff6b8a' }[g];
   ui.grade.textContent = g; ui.grade.style.color = gc; ui.grade.style.textShadow = `0 0 50px ${gc}88`;
+  ui.gradeLabel.textContent = "TIME'S UP";
+  ui.endRule.textContent = isBest
+    ? `Rank ${g} is a new best. Beat it on the next run.`
+    : `Rank ${g}. Beat your best score to win the next run.`;
   ui.newbest.textContent = isBest ? 'NEW BEST!' : '';
   ui.rScore.textContent = sc; ui.rRings.textContent = state.ringsHit; ui.rCombo.textContent = `×${state.maxCombo}`; ui.rSpeed.textContent = Math.round(state.topSpeed);
   // Announcer: "Time!" then the rank reveal a beat later (fall back to the win chime).

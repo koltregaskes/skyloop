@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <meta name="theme-color" content="#1a1233" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='%237afcff'/></svg>" />
 <title>SKYLOOP</title>
 <style>
   :root {
@@ -96,13 +97,20 @@
     transition: opacity 0.4s; padding: 24px;
   }
   .screen.hidden { opacity: 0; pointer-events: none; }
+  /* Buttons force pointer-events:auto, which would let a hidden screen swallow clicks. */
+  .screen.hidden * { pointer-events: none !important; }
 
   #menu { background: linear-gradient(to bottom, rgba(12,8,26,0.35), rgba(12,8,26,0.8)), url('./assets/keyart-b.jpg') center/cover no-repeat; }
   #results { background: linear-gradient(to bottom, rgba(12,8,26,0.55), rgba(12,8,26,0.9)), url('./assets/keyart-a.jpg') center/cover no-repeat; }
   #pause { background: rgba(12,8,26,0.7); backdrop-filter: blur(4px); }
 
   .title { font-size: clamp(48px, 11vw, 104px); font-weight: 900; letter-spacing: 0.46em; padding-left: 0.46em; margin: 0; color: var(--ink); text-shadow: 0 0 36px rgba(122,252,255,0.5); }
-  .tagline { color: var(--amber); letter-spacing: 0.32em; font-size: clamp(10px, 2vw, 13px); margin: 4px 0 26px; }
+  .tagline { color: var(--amber); letter-spacing: 0.32em; font-size: clamp(10px, 2vw, 13px); margin: 4px 0 8px; }
+  .goal {
+    max-width: 36rem; margin: 0 auto 18px; color: var(--ink);
+    font-size: clamp(13px, 2.2vw, 16px); line-height: 1.45; letter-spacing: 0.01em;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.75);
+  }
 
   .btn {
     pointer-events: auto; cursor: pointer; font-family: var(--font); font-weight: 800;
@@ -131,7 +139,9 @@
 
   .menuMeta { color: var(--dim); font-size: 12px; margin-top: 14px; letter-spacing: 0.04em; }
   .hint { color: var(--dim); font-size: 12px; line-height: 1.9; margin-top: 14px; background: var(--panel); border: 1px solid var(--stroke); border-radius: 12px; padding: 12px 22px; }
+  .hint.hidden { display: none; }
   .hint b { color: var(--ink); }
+  #rankLine { color: var(--ink); }
   .settings { margin-top: 12px; }
   .toggle { pointer-events: auto; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--dim); background: var(--panel); border: 1px solid var(--stroke); border-radius: 999px; padding: 7px 16px; margin: 4px; }
   .toggle.on { color: var(--cyan); border-color: var(--cyan); }
@@ -147,6 +157,7 @@
   .statGrid .k { color: var(--dim); font-size: 12px; letter-spacing: 0.06em; text-align: left; }
   .statGrid .v { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
   .newbest { color: var(--gold); letter-spacing: 0.2em; font-size: 13px; margin-bottom: 14px; min-height: 16px; animation: pulse 1s infinite; }
+  .endRule { color: var(--ink); font-size: 14px; line-height: 1.45; max-width: 28rem; margin: 0 0 14px; }
 
   /* ---------------------------------------------------------- touch ui */
   #touch { position: fixed; inset: 0; z-index: 7; display: none; pointer-events: none; }
@@ -219,6 +230,7 @@
   <div id="menu" class="screen">
     <h1 class="title">SKYLOOP</h1>
     <div class="tagline">SKY-RING TIME ATTACK</div>
+    <p class="goal" id="goalLine">The run ends when the clock hits zero. Chase the best rank, S down to D. Beating your best score is the win.</p>
 
     <div class="charSelect" id="charSelect">
       <div class="char sel" data-char="drift">
@@ -243,10 +255,11 @@
       <button class="toggle" id="howToggle">? How to play</button>
     </div>
     <div class="menuMeta" id="menuBest">Best score —</div>
-    <div class="hint hidden" id="howBox">
+    <div class="hint" id="howBox">
       <b>W/S</b> or <b>↑/↓</b> dive &amp; climb &nbsp;·&nbsp; <b>A/D</b> or <b>←/→</b> bank &amp; turn<br/>
       <b>Shift</b> boost &nbsp;·&nbsp; <b>Esc</b> pause &nbsp;·&nbsp; on phone: drag to steer, tap BOOST<br/>
-      Fly through rings to <b>add time</b>. Chain them for a <b>combo</b>. Gold rings = big bonus, cyan = refill boost. Don't let the clock hit zero.
+      Fly through rings to <b>add time</b> and score. Chain them for a <b>combo</b>. A centred pass is <b>PERFECT</b>. Gold rings pay more, cyan refills boost.<br/>
+      <span id="rankLine"></span>
     </div>
   </div>
 
@@ -269,6 +282,7 @@
   <div id="results" class="screen hidden">
     <div id="gradeLabel">RANK</div>
     <h1 id="grade">A</h1>
+    <p class="endRule" id="endRule"></p>
     <div class="newbest" id="newbest"></div>
     <div class="statGrid">
       <div class="k">Score</div><div class="v" id="rScore">0</div>
