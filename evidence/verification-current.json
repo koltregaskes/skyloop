@@ -1,6 +1,6 @@
 {
   "url": "http://127.0.0.1:8431/?seed=7",
-  "started_at": "2026-06-15T08:49:11.794Z",
+  "started_at": "2026-10-25T23:47:17.352Z",
   "checks": [
     {
       "name": "loads to menu",
@@ -10,7 +10,7 @@
     {
       "name": "hero flies the course under autopilot",
       "pass": true,
-      "detail": "moved 5m"
+      "detail": "moved 7m"
     },
     {
       "name": "rings collect via live collectRing code",
@@ -30,7 +30,7 @@
     {
       "name": "passing rings extends the clock",
       "pass": true,
-      "detail": "time 21.2s → 29.9s"
+      "detail": "time 21.1s → 29.9s"
     },
     {
       "name": "audio engine running + gameplay music target",
@@ -78,7 +78,7 @@
       "detail": "clean"
     }
   ],
-  "finished_at": "2026-06-15T08:50:36.094Z",
+  "finished_at": "2026-10-25T23:48:23.630Z",
   "console_errors": [],
   "pass": true
 }
